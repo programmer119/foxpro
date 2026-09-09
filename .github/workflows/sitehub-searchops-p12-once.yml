@@ -1,0 +1,41 @@
+name: Complete SiteHub SearchOps p12 once
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/sitehub-searchops-p12-once.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Complete SearchOps in Vite source
+        run: |
+          set -Eeuo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html'); h=p.read_text(encoding='utf-8')
+          marker='SITEHUB-SEARCHOPS-P12'
+          if marker not in h:
+              schema='''\n<!-- SITEHUB-SEARCHOPS-P12 -->\n<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"SuaveForge","url":"https://suaveforge.com/"},{"@type":"WebApplication","name":"ERP PDF Secure Merge Demo","url":"https://foxpro.suaveforge.com/","description":"Visual FoxPro ERP 연동 PDF 병합·이미지화·저장 데모","publisher":{"@type":"Organization","name":"SuaveForge","url":"https://suaveforge.com/"}}]}</script>\n'''
+              h=h.replace('</head>',schema+'</head>',1)
+              fallback='''<div id="app"><main aria-label="ERP PDF Secure Merge service"><h1>ERP PDF Secure Merge</h1><p>SuaveForge가 운영하는 Visual FoxPro ERP 연동 PDF 처리 데모입니다. PDF 3개를 정해진 순서로 병합하고 각 페이지를 이미지형 PDF로 변환해 저장하는 흐름을 브라우저에서 확인할 수 있습니다.</p><p>PDF 3개를 선택하면 병합·이미지화 과정을 체험할 수 있으며, 사용 방법이나 연동 오류는 SuaveForge 지원 경로에서 확인할 수 있습니다.</p><a href="https://suaveforge.com/">SuaveForge 서비스 및 지원 안내</a></main></div>'''
+              h=h.replace('<div id="app"></div>',fallback,1)
+              p.write_text(h,encoding='utf-8')
+          root=Path('public'); root.mkdir(exist_ok=True)
+          (root/'robots.txt').write_text('User-agent: *\nAllow: /\nSitemap: https://foxpro.suaveforge.com/sitemap.xml\n',encoding='utf-8')
+          (root/'sitemap.xml').write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://foxpro.suaveforge.com/</loc></url></urlset>\n',encoding='utf-8')
+          PY
+          grep -q 'SITEHUB-SEARCHOPS-P12' index.html
+          grep -q '<h1>ERP PDF Secure Merge</h1>' index.html
+          grep -q 'SuaveForge가 운영하는' index.html
+          grep -q 'Sitemap: https://foxpro.suaveforge.com/sitemap.xml' public/robots.txt
+          npm install --registry=https://registry.npmjs.org/ --no-audit --no-fund
+          npm run build
+          grep -q 'SITEHUB-SEARCHOPS-P12' dist/index.html
+          test -s dist/robots.txt; test -s dist/sitemap.xml
+          git config user.name 'SuaveForge SiteHub'
+          git config user.email '53187583+programmer119@users.noreply.github.com'
+          git add index.html public/robots.txt public/sitemap.xml
+          git diff --cached --quiet || (git commit -m 'Complete SiteHub SearchOps p12' && git push)
